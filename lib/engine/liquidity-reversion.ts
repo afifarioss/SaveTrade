@@ -1,5 +1,4 @@
 import { calculateIndicators } from "./indicators";
-
 import type {
   Candle,
   SignalAnalysis,
@@ -7,32 +6,27 @@ import type {
 } from "../types/trading";
 
 export const LIQUIDITY_REVERSION_VERSION =
-  "ST-LIQUIDITY-REVERSION-1.0";
+  "ST-LIQUIDITY-REVERSION-2.0";
 
 const CONFIG = {
   minCandles: 200,
 
-  // Avoid fading strong trends.
+  // Mean reversion is only allowed in relatively weak trends.
   maxAdx: 25,
 
-  // Mean-reversion thresholds.
-  oversoldRsi: 35,
-  overboughtRsi: 65,
+  // Require a genuinely stretched market.
+  oversoldRsi: 30,
+  overboughtRsi: 70,
+  minDisplacementAtr: 1.0,
 
-  // Minimum displacement from EMA20 measured in ATRs.
-  minDisplacementAtr: 0.75,
-
-  // Confirmation must show the candle beginning to reverse.
+  // Reversal candle quality.
   minimumBodyRatio: 0.20,
 
-  // Signal confidence required by this strategy.
-  threshold: 75,
+  // Stronger confirmation than v1.
+  threshold: 80,
 };
 
-function sma(
-  values: number[],
-  period: number,
-): number {
+function sma(values: number[], period: number): number {
   if (values.length < period) {
     return 0;
   }
@@ -40,10 +34,8 @@ function sma(
   const slice = values.slice(-period);
 
   return (
-    slice.reduce(
-      (sum, value) => sum + value,
-      0,
-    ) / period
+    slice.reduce((sum, value) => sum + value, 0) /
+    period
   );
 }
 
@@ -66,20 +58,13 @@ function calculateAdx(
     tr.push(
       Math.max(
         current.high - current.low,
-        Math.abs(
-          current.high - previous.close,
-        ),
-        Math.abs(
-          current.low - previous.close,
-        ),
+        Math.abs(current.high - previous.close),
+        Math.abs(current.low - previous.close),
       ),
     );
 
-    const upMove =
-      current.high - previous.high;
-
-    const downMove =
-      previous.low - current.low;
+    const upMove = current.high - previous.high;
+    const downMove = previous.low - current.low;
 
     plusDm.push(
       upMove > downMove && upMove > 0
@@ -103,10 +88,7 @@ function calculateAdx(
   ) {
     const trSum = tr
       .slice(i - period + 1, i + 1)
-      .reduce(
-        (sum, value) => sum + value,
-        0,
-      );
+      .reduce((sum, value) => sum + value, 0);
 
     if (trSum <= 0) {
       continue;
@@ -114,35 +96,23 @@ function calculateAdx(
 
     const plusSum = plusDm
       .slice(i - period + 1, i + 1)
-      .reduce(
-        (sum, value) => sum + value,
-        0,
-      );
+      .reduce((sum, value) => sum + value, 0);
 
     const minusSum = minusDm
       .slice(i - period + 1, i + 1)
-      .reduce(
-        (sum, value) => sum + value,
-        0,
-      );
+      .reduce((sum, value) => sum + value, 0);
 
-    const plusDi =
-      (plusSum / trSum) * 100;
+    const plusDi = (plusSum / trSum) * 100;
+    const minusDi = (minusSum / trSum) * 100;
 
-    const minusDi =
-      (minusSum / trSum) * 100;
-
-    const denominator =
-      plusDi + minusDi;
+    const denominator = plusDi + minusDi;
 
     if (denominator <= 0) {
       continue;
     }
 
     dx.push(
-      (Math.abs(
-        plusDi - minusDi,
-      ) /
+      (Math.abs(plusDi - minusDi) /
         denominator) *
         100,
     );
@@ -155,9 +125,7 @@ function calculateAdx(
   return sma(dx, period);
 }
 
-function clampScore(
-  value: number,
-): number {
+function clampScore(value: number): number {
   return Math.max(
     0,
     Math.min(100, Math.round(value)),
@@ -172,16 +140,12 @@ export function analyzeLiquidityReversion(
     candles[candles.length - 1]?.timestamp ??
     Date.now();
 
-  if (
-    candles.length < CONFIG.minCandles
-  ) {
+  if (candles.length < CONFIG.minCandles) {
     return {
       symbol,
       signal: "WAIT",
       score: 0,
-      indicators: calculateIndicators(
-        candles,
-      ),
+      indicators: calculateIndicators(candles),
       reasons: [
         "Not enough candles for liquidity-reversion",
       ],
@@ -198,12 +162,10 @@ export function analyzeLiquidityReversion(
   const previous =
     candles[candles.length - 2];
 
-  const recentCloses = candles
-    .slice(-21)
-    .map((candle) => candle.close);
-
   const mean20 = sma(
-    recentCloses,
+    candles
+      .slice(-21)
+      .map((candle) => candle.close),
     20,
   );
 
@@ -219,16 +181,11 @@ export function analyzeLiquidityReversion(
       signal: "WAIT",
       score: 0,
       indicators,
-      reasons: [
-        "Invalid volatility data",
-      ],
+      reasons: ["Invalid volatility data"],
       timestamp,
     };
   }
 
-  /*
-   * Strong trends are dangerous for mean reversion.
-   */
   if (adx > CONFIG.maxAdx) {
     return {
       symbol,
@@ -246,25 +203,20 @@ export function analyzeLiquidityReversion(
     (current.close - mean20) /
     indicators.atr14;
 
-  const body =
-    Math.abs(
-      current.close - current.open,
-    );
+  const range = current.high - current.low;
 
-  const range =
-    current.high - current.low;
+  const body =
+    Math.abs(current.close - current.open);
 
   const bodyRatio =
-    range > 0
-      ? body / range
-      : 0;
+    range > 0 ? body / range : 0;
 
   /*
-   * LONG:
+   * LONG SETUP
    *
-   * Price is materially below its mean,
-   * RSI is oversold,
-   * and the latest candle begins reversing upward.
+   * Previous candle establishes the downside extreme.
+   * Current candle must confirm the reversal by closing
+   * above the previous candle's high.
    */
   let longScore = 0;
   const longReasons: string[] = [];
@@ -275,7 +227,7 @@ export function analyzeLiquidityReversion(
   ) {
     longScore += 25;
     longReasons.push(
-      "Price is materially below its short-term mean",
+      "Price is at least 1 ATR below the short-term mean",
     );
   }
 
@@ -285,16 +237,16 @@ export function analyzeLiquidityReversion(
   ) {
     longScore += 25;
     longReasons.push(
-      `RSI is oversold: ${indicators.rsi14.toFixed(1)}`,
+      `RSI is deeply oversold: ${indicators.rsi14.toFixed(1)}`,
     );
   }
 
   if (
     current.close > current.open
   ) {
-    longScore += 20;
+    longScore += 10;
     longReasons.push(
-      "Current candle closes above its open",
+      "Current candle is bullish",
     );
   }
 
@@ -303,7 +255,7 @@ export function analyzeLiquidityReversion(
   ) {
     longScore += 10;
     longReasons.push(
-      "Price has started recovering",
+      "Price is recovering from the previous close",
     );
   }
 
@@ -318,21 +270,20 @@ export function analyzeLiquidityReversion(
   }
 
   if (
-    current.close > current.low +
-      range * 0.60
+    current.close > previous.high
   ) {
-    longScore += 10;
+    longScore += 20;
     longReasons.push(
-      "Close is positioned in the upper portion of the candle",
+      "Current candle confirms reversal above previous high",
     );
   }
 
   /*
-   * SHORT:
+   * SHORT SETUP
    *
-   * Price is materially above its mean,
-   * RSI is overbought,
-   * and the latest candle begins reversing downward.
+   * Previous candle establishes the upside extreme.
+   * Current candle must confirm the reversal by closing
+   * below the previous candle's low.
    */
   let shortScore = 0;
   const shortReasons: string[] = [];
@@ -343,7 +294,7 @@ export function analyzeLiquidityReversion(
   ) {
     shortScore += 25;
     shortReasons.push(
-      "Price is materially above its short-term mean",
+      "Price is at least 1 ATR above the short-term mean",
     );
   }
 
@@ -353,16 +304,16 @@ export function analyzeLiquidityReversion(
   ) {
     shortScore += 25;
     shortReasons.push(
-      `RSI is overbought: ${indicators.rsi14.toFixed(1)}`,
+      `RSI is deeply overbought: ${indicators.rsi14.toFixed(1)}`,
     );
   }
 
   if (
     current.close < current.open
   ) {
-    shortScore += 20;
+    shortScore += 10;
     shortReasons.push(
-      "Current candle closes below its open",
+      "Current candle is bearish",
     );
   }
 
@@ -371,7 +322,7 @@ export function analyzeLiquidityReversion(
   ) {
     shortScore += 10;
     shortReasons.push(
-      "Price has started falling back",
+      "Price is falling from the previous close",
     );
   }
 
@@ -386,12 +337,11 @@ export function analyzeLiquidityReversion(
   }
 
   if (
-    current.close <=
-    current.low + range * 0.40
+    current.close < previous.low
   ) {
-    shortScore += 10;
+    shortScore += 20;
     shortReasons.push(
-      "Close is positioned in the lower portion of the candle",
+      "Current candle confirms reversal below previous low",
     );
   }
 
@@ -400,16 +350,14 @@ export function analyzeLiquidityReversion(
     shortScore,
   );
 
-  if (
-    score < CONFIG.threshold
-  ) {
+  if (score < CONFIG.threshold) {
     return {
       symbol,
       signal: "WAIT",
       score: clampScore(score),
       indicators,
       reasons: [
-        "Liquidity-reversion threshold not reached",
+        "Liquidity-reversion confirmation threshold not reached",
         ...(longScore >= shortScore
           ? longReasons
           : shortReasons),
@@ -418,12 +366,10 @@ export function analyzeLiquidityReversion(
     };
   }
 
-  if (
-    longScore > shortScore
-  ) {
+  if (longScore > shortScore) {
     return {
       symbol,
-      signal: "BUY",
+      signal: "LONG",
       score: clampScore(longScore),
       indicators,
       reasons: longReasons,
@@ -431,12 +377,10 @@ export function analyzeLiquidityReversion(
     };
   }
 
-  if (
-    shortScore > longScore
-  ) {
+  if (shortScore > longScore) {
     return {
       symbol,
-      signal: "SELL",
+      signal: "SHORT",
       score: clampScore(shortScore),
       indicators,
       reasons: shortReasons,
@@ -450,7 +394,7 @@ export function analyzeLiquidityReversion(
     score: clampScore(score),
     indicators,
     reasons: [
-      "No directional advantage",
+      "Long and short reversal scores are tied",
     ],
     timestamp,
   };
