@@ -62,6 +62,7 @@ export interface Position {
   riskAmount: number;
   openedAt: number;
   strategyVersion: string;
+  signalScore: number;
 }
 
 export interface Trade {
@@ -110,5 +111,11 @@ export const SAFE_TRADE_CONFIG = {
   atrStopMultiplier: 1.5,
   takeProfitR: 2,
   signalThreshold: 70,
+
+  // Paper execution assumptions
+  // 0.10% fee per side and 0.02% slippage per side.
+  feeRate: 0.001,
+  slippageRate: 0.0002,
+
   strategyVersion: "ST-TREND-PULLBACK-1.0",
 } as const;

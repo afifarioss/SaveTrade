@@ -7,11 +7,41 @@ import type {
 } from "../types/trading";
 
 import { calculateRiskDecision } from "./risk";
+import { SAFE_TRADE_CONFIG } from "../types/trading";
 
 function createId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
+}
+
+function applyEntrySlippage(
+  price: number,
+  side: Side,
+): number {
+  const rate = SAFE_TRADE_CONFIG.slippageRate;
+
+  return side === "LONG"
+    ? price * (1 + rate)
+    : price * (1 - rate);
+}
+
+function applyExitSlippage(
+  price: number,
+  side: Side,
+): number {
+  const rate = SAFE_TRADE_CONFIG.slippageRate;
+
+  return side === "LONG"
+    ? price * (1 - rate)
+    : price * (1 + rate);
+}
+
+function calculateFee(
+  price: number,
+  quantity: number,
+): number {
+  return price * quantity * SAFE_TRADE_CONFIG.feeRate;
 }
 
 export function openPaperPosition(
@@ -21,11 +51,17 @@ export function openPaperPosition(
   candle: Candle,
   atr: number,
   signalScore: number,
+  entryReferencePrice = candle.close,
 ): AccountState {
+  const executionEntry = applyEntrySlippage(
+    entryReferencePrice,
+    side,
+  );
+
   const risk = calculateRiskDecision(
     account,
     side,
-    candle.close,
+    executionEntry,
     atr,
   );
 
@@ -36,21 +72,32 @@ export function openPaperPosition(
     };
   }
 
+  const entryFee = calculateFee(
+    executionEntry,
+    risk.quantity,
+  );
+
   const position: Position = {
     id: createId("pos"),
     symbol,
     side,
-    entryPrice: candle.close,
+    entryPrice: executionEntry,
     stopLoss: risk.stopLoss,
     takeProfit: risk.takeProfit,
     quantity: risk.quantity,
     riskAmount: risk.riskAmount,
     openedAt: candle.timestamp,
-    strategyVersion: `ST-TREND-PULLBACK-1.0:${signalScore}`,
+    strategyVersion:
+      SAFE_TRADE_CONFIG.strategyVersion,
+    signalScore,
   };
 
   return {
     ...account,
+    balance: account.balance - entryFee,
+    equity: account.equity - entryFee,
+    dailyPnl: account.dailyPnl - entryFee,
+    weeklyPnl: account.weeklyPnl - entryFee,
     positions: [
       ...account.positions,
       position,
@@ -112,6 +159,9 @@ export function processPaperCandle(
         candle.low <= position.takeProfit;
 
       if (stopHit && targetHit) {
+        // Conservative assumption:
+        // when both occur inside one candle,
+        // assume the stop was hit first.
         exitPrice = position.stopLoss;
         exitReason = "STOP_LOSS";
       } else if (stopHit) {
@@ -131,13 +181,26 @@ export function processPaperCandle(
       continue;
     }
 
+    const executionExit = applyExitSlippage(
+      exitPrice,
+      position.side,
+    );
+
     const priceDifference =
       position.side === "LONG"
-        ? exitPrice - position.entryPrice
-        : position.entryPrice - exitPrice;
+        ? executionExit - position.entryPrice
+        : position.entryPrice - executionExit;
+
+    const grossPnl =
+      priceDifference * position.quantity;
+
+    const exitFee = calculateFee(
+      executionExit,
+      position.quantity,
+    );
 
     const pnl =
-      priceDifference * position.quantity;
+      grossPnl - exitFee;
 
     const rMultiple =
       position.riskAmount > 0
@@ -149,7 +212,7 @@ export function processPaperCandle(
       symbol: position.symbol,
       side: position.side,
       entryPrice: position.entryPrice,
-      exitPrice,
+      exitPrice: executionExit,
       stopLoss: position.stopLoss,
       takeProfit: position.takeProfit,
       quantity: position.quantity,
@@ -159,10 +222,10 @@ export function processPaperCandle(
       openedAt: position.openedAt,
       closedAt: candle.timestamp,
       exitReason,
-      strategyVersion: position.strategyVersion,
-      signalScore: Number(
-        position.strategyVersion.split(":")[1] ?? 0,
-      ),
+      strategyVersion:
+        position.strategyVersion,
+      signalScore:
+        position.signalScore,
     };
 
     closedTrades.push(trade);
@@ -177,20 +240,15 @@ export function processPaperCandle(
     0,
   );
 
-  const losses = closedTrades.filter(
-    (trade) => trade.pnl < 0,
-  );
-
-  const wins = closedTrades.filter(
-    (trade) => trade.pnl > 0,
-  );
-
   const latestTrade =
     closedTrades[closedTrades.length - 1];
 
   const consecutiveLosses =
     latestTrade.pnl < 0
-      ? account.consecutiveLosses + losses.length
+      ? account.consecutiveLosses +
+        closedTrades.filter(
+          (trade) => trade.pnl < 0,
+        ).length
       : 0;
 
   const nextBalance =

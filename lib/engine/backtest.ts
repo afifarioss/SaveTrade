@@ -6,9 +6,11 @@ import type {
 } from "../types/trading";
 
 import { createPaperAccount } from "./account";
-import { calculateIndicators } from "./indicators";
 import { analyzeMarket } from "./strategy";
-import { openPaperPosition, processPaperCandle } from "./paper-engine";
+import {
+  openPaperPosition,
+  processPaperCandle,
+} from "./paper-engine";
 
 export interface BacktestResult {
   symbol: Symbol;
@@ -26,37 +28,153 @@ export interface BacktestResult {
   trades: Trade[];
 }
 
+function getUtcWeekKey(
+  timestamp: number,
+): string {
+  const date = new Date(timestamp);
+
+  const year = date.getUTCFullYear();
+  const firstDay = new Date(
+    Date.UTC(year, 0, 1),
+  );
+
+  const dayOfYear =
+    Math.floor(
+      (date.getTime() -
+        firstDay.getTime()) /
+        86400000,
+    ) + 1;
+
+  const week =
+    Math.ceil(dayOfYear / 7);
+
+  return `${year}-W${week}`;
+}
+
 export function runBacktest(
   symbol: Symbol,
   candles: Candle[],
 ): BacktestResult {
-  let account: AccountState = createPaperAccount();
+  let account: AccountState =
+    createPaperAccount();
 
-  let peakBalance = account.balance;
+  let peakEquity = account.equity;
   let maxDrawdown = 0;
 
   const minimumCandles = 200;
 
+  /*
+   * Backtest execution model:
+   *
+   * Candle N closes
+   *     ↓
+   * Analyze history through N
+   *     ↓
+   * Signal generated
+   *     ↓
+   * Candle N+1 opens
+   *     ↓
+   * Enter at N+1 open + execution slippage
+   *     ↓
+   * Manage SL/TP during N+1
+   *
+   * This prevents look-ahead bias.
+   */
+
   for (
-    let i = minimumCandles;
+    let i = minimumCandles + 1;
     i < candles.length;
     i++
   ) {
-    const history = candles.slice(0, i + 1);
     const currentCandle = candles[i];
 
+    /*
+     * Capture whether a position existed when this
+     * candle opened.
+     *
+     * If it did, we must not re-enter during this
+     * same candle after discovering that the position
+     * was stopped or targeted.
+     */
+    const hadPositionAtOpen =
+      account.positions.length > 0;
+
+    /*
+     * Reset daily/weekly risk budgets using UTC
+     * exchange timestamps.
+     */
+    const previousCandle =
+      candles[i - 1];
+
+    const currentDay =
+      new Date(
+        currentCandle.timestamp,
+      ).toISOString().slice(0, 10);
+
+    const previousDay =
+      new Date(
+        previousCandle.timestamp,
+      ).toISOString().slice(0, 10);
+
+    const currentWeek =
+      getUtcWeekKey(
+        currentCandle.timestamp,
+      );
+
+    const previousWeek =
+      getUtcWeekKey(
+        previousCandle.timestamp,
+      );
+
+    if (currentDay !== previousDay) {
+      account = {
+        ...account,
+        dailyPnl: 0,
+        consecutiveLosses: 0,
+        botStatus:
+          account.botStatus === "SAFE_MODE"
+            ? "READY"
+            : account.botStatus,
+      };
+    }
+
+    if (currentWeek !== previousWeek) {
+      account = {
+        ...account,
+        weeklyPnl: 0,
+      };
+    }
+
+    /*
+     * First manage positions that were already open
+     * before the current candle.
+     */
     account = processPaperCandle(
       account,
       currentCandle,
     );
 
+    /*
+     * Only a position-free account at the OPEN of
+     * the candle may create a new entry.
+     */
     if (
+      !hadPositionAtOpen &&
       account.positions.length === 0 &&
       account.botStatus !== "SAFE_MODE"
     ) {
+      /*
+       * The signal is based only on candles that were
+       * completely closed before the entry candle.
+       */
+      const signalHistory = candles.slice(
+        0,
+        i,
+      );
+
       const analysis = analyzeMarket(
         symbol,
-        history,
+        signalHistory,
       );
 
       if (
@@ -68,6 +186,10 @@ export function runBacktest(
             ? "LONG"
             : "SHORT";
 
+        /*
+         * Entry is the NEXT candle's OPEN.
+         * Slippage is applied inside openPaperPosition().
+         */
         account = openPaperPosition(
           account,
           symbol,
@@ -75,19 +197,32 @@ export function runBacktest(
           currentCandle,
           analysis.indicators.atr14,
           analysis.score,
+          currentCandle.open,
+        );
+
+        /*
+         * The newly opened position must also be
+         * exposed to the current candle's high/low.
+         *
+         * Therefore a position can enter at the open
+         * and hit SL/TP during the same candle.
+         */
+        account = processPaperCandle(
+          account,
+          currentCandle,
         );
       }
     }
 
-    peakBalance = Math.max(
-      peakBalance,
-      account.balance,
+    peakEquity = Math.max(
+      peakEquity,
+      account.equity,
     );
 
     const drawdown =
-      peakBalance > 0
-        ? ((peakBalance - account.equity) /
-            peakBalance) *
+      peakEquity > 0
+        ? ((peakEquity - account.equity) /
+            peakEquity) *
           100
         : 0;
 
@@ -96,7 +231,9 @@ export function runBacktest(
       drawdown,
     );
 
-    if (account.botStatus === "SAFE_MODE") {
+    if (
+      account.botStatus === "SAFE_MODE"
+    ) {
       break;
     }
   }
@@ -121,7 +258,8 @@ export function runBacktest(
   const averageR =
     totalTrades > 0
       ? trades.reduce(
-          (sum, trade) => sum + trade.rMultiple,
+          (sum, trade) =>
+            sum + trade.rMultiple,
           0,
         ) / totalTrades
       : 0;
@@ -129,9 +267,12 @@ export function runBacktest(
   const averageWinR =
     winningTrades > 0
       ? trades
-          .filter((trade) => trade.pnl > 0)
+          .filter(
+            (trade) => trade.pnl > 0,
+          )
           .reduce(
-            (sum, trade) => sum + trade.rMultiple,
+            (sum, trade) =>
+              sum + trade.rMultiple,
             0,
           ) / winningTrades
       : 0;
@@ -140,9 +281,12 @@ export function runBacktest(
     losingTrades > 0
       ? Math.abs(
           trades
-            .filter((trade) => trade.pnl < 0)
+            .filter(
+              (trade) => trade.pnl < 0,
+            )
             .reduce(
-              (sum, trade) => sum + trade.rMultiple,
+              (sum, trade) =>
+                sum + trade.rMultiple,
               0,
             ) / losingTrades,
         )
@@ -150,7 +294,8 @@ export function runBacktest(
 
   const expectancyR =
     (winRate / 100) * averageWinR -
-    ((100 - winRate) / 100) * averageLossR;
+    ((100 - winRate) / 100) *
+      averageLossR;
 
   const netPnl =
     account.balance -
@@ -158,12 +303,15 @@ export function runBacktest(
 
   const returnPercent =
     account.startingBalance > 0
-      ? (netPnl / account.startingBalance) * 100
+      ? (netPnl /
+          account.startingBalance) *
+        100
       : 0;
 
   return {
     symbol,
-    startingBalance: account.startingBalance,
+    startingBalance:
+      account.startingBalance,
     endingBalance: account.balance,
     netPnl,
     returnPercent,
