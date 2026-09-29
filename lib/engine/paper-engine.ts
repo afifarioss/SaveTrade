@@ -222,6 +222,7 @@ export function processPaperCandle(
       riskAmount: position.riskAmount,
       entryFee: position.entryFee,
       exitFee,
+      grossPnl,
       pnl,
       rMultiple,
       openedAt: position.openedAt,

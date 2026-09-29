@@ -25,6 +25,13 @@ export interface BacktestResult {
   averageR: number;
   maxDrawdown: number;
   expectancyR: number;
+  grossPnl: number;
+  totalEntryFees: number;
+  totalExitFees: number;
+  totalFees: number;
+  sameCandleExits: number;
+  stopLossTrades: number;
+  takeProfitTrades: number;
   trades: Trade[];
 }
 
@@ -297,6 +304,49 @@ export function runBacktest(
     ((100 - winRate) / 100) *
       averageLossR;
 
+  const grossPnl =
+    trades.reduce(
+      (sum, trade) =>
+        sum + trade.grossPnl,
+      0,
+    );
+
+  const totalEntryFees =
+    trades.reduce(
+      (sum, trade) =>
+        sum + trade.entryFee,
+      0,
+    );
+
+  const totalExitFees =
+    trades.reduce(
+      (sum, trade) =>
+        sum + trade.exitFee,
+      0,
+    );
+
+  const totalFees =
+    totalEntryFees +
+    totalExitFees;
+
+  const sameCandleExits =
+    trades.filter(
+      (trade) =>
+        trade.openedAt === trade.closedAt,
+    ).length;
+
+  const stopLossTrades =
+    trades.filter(
+      (trade) =>
+        trade.exitReason === "STOP_LOSS",
+    ).length;
+
+  const takeProfitTrades =
+    trades.filter(
+      (trade) =>
+        trade.exitReason === "TAKE_PROFIT",
+    ).length;
+
   const netPnl =
     account.balance -
     account.startingBalance;
@@ -322,6 +372,13 @@ export function runBacktest(
     averageR,
     maxDrawdown,
     expectancyR,
+    grossPnl,
+    totalEntryFees,
+    totalExitFees,
+    totalFees,
+    sameCandleExits,
+    stopLossTrades,
+    takeProfitTrades,
     trades,
   };
 }

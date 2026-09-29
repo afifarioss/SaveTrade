@@ -78,6 +78,7 @@ export interface Trade {
   riskAmount: number;
   entryFee: number;
   exitFee: number;
+  grossPnl: number;
   pnl: number;
   rMultiple: number;
   openedAt: number;
