@@ -32,6 +32,37 @@ export interface BacktestResult {
   sameCandleExits: number;
   stopLossTrades: number;
   takeProfitTrades: number;
+
+  longTrades: number;
+  shortTrades: number;
+  longWins: number;
+  longLosses: number;
+  shortWins: number;
+  shortLosses: number;
+
+  averageWinningR: number;
+  averageLosingR: number;
+
+  grossProfit: number;
+  grossLoss: number;
+  profitFactor: number;
+
+  largestWin: number;
+  largestLoss: number;
+  averageTradePnl: number;
+
+  feePercentOfGrossPnl: number;
+
+  stopLossRate: number;
+  takeProfitRate: number;
+
+  signalScoreAverage: number;
+  signalScoreWins: number;
+  signalScoreLosses: number;
+
+  sameCandleStopLosses: number;
+  sameCandleTakeProfits: number;
+
   trades: Trade[];
 }
 
@@ -359,6 +390,202 @@ export function runBacktest(
         100
       : 0;
 
+  const longTrades =
+    trades.filter(
+      (trade) => trade.side === "LONG",
+    ).length;
+
+  const shortTrades =
+    trades.filter(
+      (trade) => trade.side === "SHORT",
+    ).length;
+
+  const longWins =
+    trades.filter(
+      (trade) =>
+        trade.side === "LONG" &&
+        trade.pnl > 0,
+    ).length;
+
+  const longLosses =
+    trades.filter(
+      (trade) =>
+        trade.side === "LONG" &&
+        trade.pnl < 0,
+    ).length;
+
+  const shortWins =
+    trades.filter(
+      (trade) =>
+        trade.side === "SHORT" &&
+        trade.pnl > 0,
+    ).length;
+
+  const shortLosses =
+    trades.filter(
+      (trade) =>
+        trade.side === "SHORT" &&
+        trade.pnl < 0,
+    ).length;
+
+  const averageWinningR =
+    winningTrades > 0
+      ? trades
+          .filter(
+            (trade) => trade.pnl > 0,
+          )
+          .reduce(
+            (sum, trade) =>
+              sum + trade.rMultiple,
+            0,
+          ) / winningTrades
+      : 0;
+
+  const averageLosingR =
+    losingTrades > 0
+      ? Math.abs(
+          trades
+            .filter(
+              (trade) => trade.pnl < 0,
+            )
+            .reduce(
+              (sum, trade) =>
+                sum + trade.rMultiple,
+              0,
+            ) / losingTrades,
+        )
+      : 0;
+
+  const grossProfit =
+    trades
+      .filter(
+        (trade) => trade.pnl > 0,
+      )
+      .reduce(
+        (sum, trade) =>
+          sum + trade.pnl,
+        0,
+      );
+
+  const grossLoss =
+    Math.abs(
+      trades
+        .filter(
+          (trade) => trade.pnl < 0,
+        )
+        .reduce(
+          (sum, trade) =>
+            sum + trade.pnl,
+          0,
+        ),
+    );
+
+  const profitFactor =
+    grossLoss > 0
+      ? grossProfit / grossLoss
+      : grossProfit > 0
+        ? Infinity
+        : 0;
+
+  const largestWin =
+    winningTrades > 0
+      ? Math.max(
+          ...trades
+            .filter(
+              (trade) => trade.pnl > 0,
+            )
+            .map(
+              (trade) => trade.pnl,
+            ),
+        )
+      : 0;
+
+  const largestLoss =
+    losingTrades > 0
+      ? Math.min(
+          ...trades
+            .filter(
+              (trade) => trade.pnl < 0,
+            )
+            .map(
+              (trade) => trade.pnl,
+            ),
+        )
+      : 0;
+
+  const averageTradePnl =
+    totalTrades > 0
+      ? netPnl / totalTrades
+      : 0;
+
+  const feePercentOfGrossPnl =
+    Math.abs(grossPnl) > 0
+      ? (totalFees /
+          Math.abs(grossPnl)) *
+        100
+      : 0;
+
+  const stopLossRate =
+    totalTrades > 0
+      ? (stopLossTrades / totalTrades) *
+        100
+      : 0;
+
+  const takeProfitRate =
+    totalTrades > 0
+      ? (takeProfitTrades / totalTrades) *
+        100
+      : 0;
+
+  const signalScoreAverage =
+    totalTrades > 0
+      ? trades.reduce(
+          (sum, trade) =>
+            sum + trade.signalScore,
+          0,
+        ) / totalTrades
+      : 0;
+
+  const signalScoreWins =
+    winningTrades > 0
+      ? trades
+          .filter(
+            (trade) => trade.pnl > 0,
+          )
+          .reduce(
+            (sum, trade) =>
+              sum + trade.signalScore,
+            0,
+          ) / winningTrades
+      : 0;
+
+  const signalScoreLosses =
+    losingTrades > 0
+      ? trades
+          .filter(
+            (trade) => trade.pnl < 0,
+          )
+          .reduce(
+            (sum, trade) =>
+              sum + trade.signalScore,
+            0,
+          ) / losingTrades
+      : 0;
+
+  const sameCandleStopLosses =
+    trades.filter(
+      (trade) =>
+        trade.openedAt === trade.closedAt &&
+        trade.exitReason === "STOP_LOSS",
+    ).length;
+
+  const sameCandleTakeProfits =
+    trades.filter(
+      (trade) =>
+        trade.openedAt === trade.closedAt &&
+        trade.exitReason === "TAKE_PROFIT",
+    ).length;
+
   return {
     symbol,
     startingBalance:
@@ -380,6 +607,37 @@ export function runBacktest(
     sameCandleExits,
     stopLossTrades,
     takeProfitTrades,
+
+    longTrades,
+    shortTrades,
+    longWins,
+    longLosses,
+    shortWins,
+    shortLosses,
+
+    averageWinningR,
+    averageLosingR,
+
+    grossProfit,
+    grossLoss,
+    profitFactor,
+
+    largestWin,
+    largestLoss,
+    averageTradePnl,
+
+    feePercentOfGrossPnl,
+
+    stopLossRate,
+    takeProfitRate,
+
+    signalScoreAverage,
+    signalScoreWins,
+    signalScoreLosses,
+
+    sameCandleStopLosses,
+    sameCandleTakeProfits,
+
     trades,
   };
 }
