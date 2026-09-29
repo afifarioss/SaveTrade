@@ -61,9 +61,10 @@ function getUtcWeekKey(
 export function runBacktest(
   symbol: Symbol,
   candles: Candle[],
+  startingBalance?: number,
 ): BacktestResult {
   let account: AccountState =
-    createPaperAccount();
+    createPaperAccount(startingBalance);
 
   let peakEquity = account.equity;
   let maxDrawdown = 0;

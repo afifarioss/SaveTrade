@@ -34,6 +34,27 @@ export async function GET(request: Request) {
 
     const symbol = requestedSymbol as Symbol;
 
+    const requestedCapital =
+      searchParams.get("capital");
+
+    const startingBalance =
+      requestedCapital === null
+        ? 100
+        : Number(requestedCapital);
+
+    if (
+      !Number.isFinite(startingBalance) ||
+      startingBalance <= 0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid capital",
+        },
+        { status: 400 },
+      );
+    }
+
     const candles = await fetchCandles(
       symbol,
       "15m",
@@ -53,6 +74,7 @@ export async function GET(request: Request) {
     const result = runBacktest(
       symbol,
       candles,
+      startingBalance,
     );
 
     return NextResponse.json({
@@ -60,6 +82,7 @@ export async function GET(request: Request) {
       mode: "PAPER",
       timeframe: "15m",
       candles: candles.length,
+      startingBalance,
       result,
       generatedAt: Date.now(),
     });

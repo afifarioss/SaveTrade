@@ -6,11 +6,13 @@ import type {
   AccountState,
 } from "../types/trading";
 
-export function createPaperAccount(): AccountState {
+export function createPaperAccount(
+  startingBalance = SAFE_TRADE_CONFIG.startingBalance,
+): AccountState {
   return {
-    startingBalance: SAFE_TRADE_CONFIG.startingBalance,
-    balance: SAFE_TRADE_CONFIG.startingBalance,
-    equity: SAFE_TRADE_CONFIG.startingBalance,
+    startingBalance,
+    balance: startingBalance,
+    equity: startingBalance,
     dailyPnl: 0,
     weeklyPnl: 0,
     consecutiveLosses: 0,
