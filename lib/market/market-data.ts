@@ -1,7 +1,7 @@
 import type { Candle, Symbol } from "../types/trading";
 
 const BINANCE_BASE_URL =
-  "https://api.binance.com/api/v3/klines";
+  "https://data-api.binance.vision/api/v3/klines";
 
 const SYMBOL_MAP: Record<Symbol, string> = {
   "BTC/USDT": "BTCUSDT",
