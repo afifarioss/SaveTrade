@@ -3,6 +3,10 @@ import {
 } from "./indicators";
 
 import {
+  calculateFibonacciConfluence,
+} from "./fibonacci";
+
+import {
   SAFE_TRADE_CONFIG,
 } from "../types/trading";
 
@@ -131,7 +135,36 @@ export function analyzeMarket(
     shortReasons.push("Bearish price action");
   }
 
-  const score = Math.max(longScore, shortScore);
+  // Fibonacci confluence: 15 points
+  const longFibonacci =
+    calculateFibonacciConfluence(
+      candles,
+      "LONG",
+      indicators.atr14,
+    );
+
+  const shortFibonacci =
+    calculateFibonacciConfluence(
+      candles,
+      "SHORT",
+      indicators.atr14,
+    );
+
+  longScore += longFibonacci.score;
+  shortScore += shortFibonacci.score;
+
+  if (longFibonacci.score > 0) {
+    longReasons.push(longFibonacci.reason);
+  }
+
+  if (shortFibonacci.score > 0) {
+    shortReasons.push(shortFibonacci.reason);
+  }
+
+  const score = Math.max(
+    longScore,
+    shortScore,
+  );
 
   if (score < SAFE_TRADE_CONFIG.signalThreshold) {
     return {
@@ -141,11 +174,9 @@ export function analyzeMarket(
       indicators,
       reasons: [
         "Signal threshold not reached",
-        ...(
-          longScore >= shortScore
-            ? longReasons
-            : shortReasons
-        ),
+        ...(longScore >= shortScore
+          ? longReasons
+          : shortReasons),
       ],
       timestamp,
     };
