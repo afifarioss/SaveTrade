@@ -1,0 +1,242 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #080a0f;
+  color: #f5f7fa;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+button {
+  font: inherit;
+}
+
+.app {
+  width: min(100%, 520px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 18px 16px 90px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.brand {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.subtitle {
+  margin-top: 4px;
+  color: #89909d;
+  font-size: 12px;
+}
+
+.paper-badge {
+  border: 1px solid #303642;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #b8c0cb;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.balance-card,
+.risk-card,
+.market-card {
+  border: 1px solid #242933;
+  background: #10131a;
+  border-radius: 16px;
+}
+
+.balance-card {
+  padding: 20px;
+}
+
+.label {
+  display: block;
+  color: #858d9a;
+  font-size: 12px;
+}
+
+.balance-card strong {
+  display: block;
+  margin: 7px 0 20px;
+  font-size: 36px;
+}
+
+.target-row {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 9px;
+  color: #aab1bc;
+  font-size: 13px;
+}
+
+.section {
+  margin-top: 22px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.section-heading button {
+  border: 0;
+  background: transparent;
+  color: #aeb6c2;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.market-list {
+  display: grid;
+  gap: 9px;
+}
+
+.market-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+}
+
+.market-card strong {
+  font-size: 14px;
+}
+
+.score {
+  margin-top: 5px;
+  color: #7f8794;
+  font-size: 11px;
+}
+
+.signal {
+  min-width: 62px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.signal.buy {
+  background: #173525;
+  color: #7ee2a7;
+}
+
+.signal.sell {
+  background: #3b2024;
+  color: #f08d99;
+}
+
+.signal.wait {
+  background: #292d35;
+  color: #b7bec8;
+}
+
+.risk-card {
+  margin-top: 14px;
+  padding: 17px;
+}
+
+.risk-card strong {
+  display: block;
+  margin-top: 5px;
+  color: #7ee2a7;
+  font-size: 18px;
+}
+
+.risk-details {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  color: #8c94a0;
+  font-size: 12px;
+}
+
+.analyze-button {
+  width: 100%;
+  margin-top: 18px;
+  padding: 15px;
+  border: 0;
+  border-radius: 12px;
+  background: #f5f7fa;
+  color: #080a0f;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.analyze-button:disabled {
+  opacity: 0.55;
+}
+
+.creator {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 28px 4px 0;
+  color: #69717d;
+  font-size: 11px;
+}
+
+.creator strong {
+  color: #aab1bc;
+}
+
+.creator small {
+  line-height: 1.5;
+}
+
+.bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 14px 10px;
+  border-top: 1px solid #20242c;
+  background: rgba(8, 10, 15, 0.96);
+  color: #68717e;
+  font-size: 11px;
+}
+
+.bottom-nav .active {
+  color: #f5f7fa;
+  font-weight: 700;
+}
+
+@media (min-width: 600px) {
+  .bottom-nav {
+    position: static;
+    margin-top: 28px;
+    border: 0;
+    background: transparent;
+  }
+}
