@@ -86,6 +86,7 @@ export function openPaperPosition(
     takeProfit: risk.takeProfit,
     quantity: risk.quantity,
     riskAmount: risk.riskAmount,
+    entryFee,
     openedAt: candle.timestamp,
     strategyVersion:
       SAFE_TRADE_CONFIG.strategyVersion,
@@ -200,7 +201,9 @@ export function processPaperCandle(
     );
 
     const pnl =
-      grossPnl - exitFee;
+      grossPnl -
+      position.entryFee -
+      exitFee;
 
     const rMultiple =
       position.riskAmount > 0
@@ -217,6 +220,8 @@ export function processPaperCandle(
       takeProfit: position.takeProfit,
       quantity: position.quantity,
       riskAmount: position.riskAmount,
+      entryFee: position.entryFee,
+      exitFee,
       pnl,
       rMultiple,
       openedAt: position.openedAt,

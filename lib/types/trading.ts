@@ -60,6 +60,7 @@ export interface Position {
   takeProfit: number;
   quantity: number;
   riskAmount: number;
+  entryFee: number;
   openedAt: number;
   strategyVersion: string;
   signalScore: number;
@@ -75,6 +76,8 @@ export interface Trade {
   takeProfit: number;
   quantity: number;
   riskAmount: number;
+  entryFee: number;
+  exitFee: number;
   pnl: number;
   rMultiple: number;
   openedAt: number;
