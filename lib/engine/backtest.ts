@@ -3,6 +3,7 @@ import type {
   Candle,
   Symbol,
   Trade,
+  StrategyVersion,
 } from "../types/trading";
 
 import { createPaperAccount } from "./account";
