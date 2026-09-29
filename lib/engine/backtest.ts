@@ -8,6 +8,7 @@ import type {
 import { createPaperAccount } from "./account";
 import { analyzeMarket } from "./strategy";
 import { analyzeRegimeMomentum } from "./regime-momentum";
+import { analyzeLiquidityReversion } from "./liquidity-reversion";
 import {
   openPaperPosition,
   processPaperCandle,
@@ -92,7 +93,17 @@ function getUtcWeekKey(
 
 export type BacktestStrategy =
   | "trend-pullback"
-  | "regime-momentum";
+  | "regime-momentum"
+  | "liquidity-reversion";
+
+export const BACKTEST_STRATEGY_VERSIONS: Record<
+  BacktestStrategy,
+  string
+> = {
+  "trend-pullback": "ST-TREND-PULLBACK-1.0",
+  "regime-momentum": "ST-REGIME-MOMENTUM-1.0",
+  "liquidity-reversion": "ST-LIQUIDITY-REVERSION-1.0",
+};
 
 export function runBacktest(
   symbol: Symbol,
@@ -223,10 +234,15 @@ export function runBacktest(
               symbol,
               signalHistory,
             )
-          : analyzeMarket(
-              symbol,
-              signalHistory,
-            );
+          : strategy === "liquidity-reversion"
+            ? analyzeLiquidityReversion(
+                symbol,
+                signalHistory,
+              )
+            : analyzeMarket(
+                symbol,
+                signalHistory,
+              );
 
       if (
         analysis.signal === "BUY" ||
@@ -249,6 +265,7 @@ export function runBacktest(
           analysis.indicators.atr14,
           analysis.score,
           currentCandle.open,
+          BACKTEST_STRATEGY_VERSIONS[strategy],
         );
 
       }

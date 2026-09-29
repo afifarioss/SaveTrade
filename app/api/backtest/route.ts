@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     const VALID_STRATEGIES: BacktestStrategy[] = [
       "trend-pullback",
       "regime-momentum",
+      "liquidity-reversion",
     ];
 
     if (

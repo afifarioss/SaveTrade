@@ -52,6 +52,7 @@ export function openPaperPosition(
   atr: number,
   signalScore: number,
   entryReferencePrice = candle.close,
+  strategyVersion = SAFE_TRADE_CONFIG.strategyVersion,
 ): AccountState {
   const executionEntry = applyEntrySlippage(
     entryReferencePrice,
@@ -88,8 +89,7 @@ export function openPaperPosition(
     riskAmount: risk.riskAmount,
     entryFee,
     openedAt: candle.timestamp,
-    strategyVersion:
-      SAFE_TRADE_CONFIG.strategyVersion,
+    strategyVersion,
     signalScore,
   };
 
