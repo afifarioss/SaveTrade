@@ -239,17 +239,6 @@ export function runBacktest(
           currentCandle.open,
         );
 
-        /*
-         * The newly opened position must also be
-         * exposed to the current candle's high/low.
-         *
-         * Therefore a position can enter at the open
-         * and hit SL/TP during the same candle.
-         */
-        account = processPaperCandle(
-          account,
-          currentCandle,
-        );
       }
     }
 
