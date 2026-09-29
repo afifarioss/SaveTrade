@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { fetchCandles } from "@/lib/market/market-data";
-import { runBacktest } from "@/lib/engine/backtest";
+import {
+  runBacktest,
+  type BacktestStrategy,
+} from "@/lib/engine/backtest";
 
 import type { Symbol } from "@/lib/types/trading";
 
@@ -33,6 +36,33 @@ export async function GET(request: Request) {
     }
 
     const symbol = requestedSymbol as Symbol;
+
+    const requestedStrategy =
+      searchParams.get("strategy") ??
+      "trend-pullback";
+
+    const VALID_STRATEGIES: BacktestStrategy[] = [
+      "trend-pullback",
+      "regime-momentum",
+    ];
+
+    if (
+      !VALID_STRATEGIES.includes(
+        requestedStrategy as BacktestStrategy,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Unsupported strategy",
+          supported: VALID_STRATEGIES,
+        },
+        { status: 400 },
+      );
+    }
+
+    const strategy =
+      requestedStrategy as BacktestStrategy;
 
     const requestedCapital =
       searchParams.get("capital");
@@ -75,6 +105,7 @@ export async function GET(request: Request) {
       symbol,
       candles,
       startingBalance,
+      strategy,
     );
 
     return NextResponse.json({
@@ -83,6 +114,7 @@ export async function GET(request: Request) {
       timeframe: "15m",
       candles: candles.length,
       startingBalance,
+      strategy,
       result,
       generatedAt: Date.now(),
     });

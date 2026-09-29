@@ -7,6 +7,7 @@ import type {
 
 import { createPaperAccount } from "./account";
 import { analyzeMarket } from "./strategy";
+import { analyzeRegimeMomentum } from "./regime-momentum";
 import {
   openPaperPosition,
   processPaperCandle,
@@ -89,10 +90,15 @@ function getUtcWeekKey(
   return `${year}-W${week}`;
 }
 
+export type BacktestStrategy =
+  | "trend-pullback"
+  | "regime-momentum";
+
 export function runBacktest(
   symbol: Symbol,
   candles: Candle[],
   startingBalance?: number,
+  strategy: BacktestStrategy = "trend-pullback",
 ): BacktestResult {
   let account: AccountState =
     createPaperAccount(startingBalance);
@@ -211,10 +217,16 @@ export function runBacktest(
         i,
       );
 
-      const analysis = analyzeMarket(
-        symbol,
-        signalHistory,
-      );
+      const analysis =
+        strategy === "regime-momentum"
+          ? analyzeRegimeMomentum(
+              symbol,
+              signalHistory,
+            )
+          : analyzeMarket(
+              symbol,
+              signalHistory,
+            );
 
       if (
         analysis.signal === "BUY" ||
