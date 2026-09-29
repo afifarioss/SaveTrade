@@ -7,7 +7,8 @@ import type {
 } from "../types/trading";
 
 export function createPaperAccount(
-  startingBalance = SAFE_TRADE_CONFIG.startingBalance,
+  startingBalance: number =
+    SAFE_TRADE_CONFIG.startingBalance,
 ): AccountState {
   return {
     startingBalance,
