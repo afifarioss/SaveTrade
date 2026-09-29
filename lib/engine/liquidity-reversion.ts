@@ -369,7 +369,7 @@ export function analyzeLiquidityReversion(
   if (longScore > shortScore) {
     return {
       symbol,
-      signal: "LONG",
+      signal: "BUY",
       score: clampScore(longScore),
       indicators,
       reasons: longReasons,
@@ -380,7 +380,7 @@ export function analyzeLiquidityReversion(
   if (shortScore > longScore) {
     return {
       symbol,
-      signal: "SHORT",
+      signal: "SELL",
       score: clampScore(shortScore),
       indicators,
       reasons: shortReasons,
