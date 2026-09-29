@@ -4,6 +4,7 @@ import type {
   Position,
   Side,
   Trade,
+  StrategyVersion,
 } from "../types/trading";
 
 import { calculateRiskDecision } from "./risk";
@@ -52,7 +53,8 @@ export function openPaperPosition(
   atr: number,
   signalScore: number,
   entryReferencePrice = candle.close,
-  strategyVersion = SAFE_TRADE_CONFIG.strategyVersion,
+  strategyVersion: StrategyVersion =
+    SAFE_TRADE_CONFIG.strategyVersion,
 ): AccountState {
   const executionEntry = applyEntrySlippage(
     entryReferencePrice,

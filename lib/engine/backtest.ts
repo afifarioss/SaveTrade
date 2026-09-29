@@ -98,7 +98,7 @@ export type BacktestStrategy =
 
 export const BACKTEST_STRATEGY_VERSIONS: Record<
   BacktestStrategy,
-  string
+  StrategyVersion
 > = {
   "trend-pullback": "ST-TREND-PULLBACK-1.0",
   "regime-momentum": "ST-REGIME-MOMENTUM-1.0",
