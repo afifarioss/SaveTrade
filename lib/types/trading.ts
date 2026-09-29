@@ -105,7 +105,8 @@ export interface AccountState {
 export type StrategyVersion =
   | "ST-TREND-PULLBACK-1.0"
   | "ST-REGIME-MOMENTUM-1.0"
-  | "ST-LIQUIDITY-REVERSION-1.0";
+  | "ST-LIQUIDITY-REVERSION-1.0"
+  | "ST-LIQUIDITY-REVERSION-2.0";
 
 export const SAFE_TRADE_CONFIG = {
   startingBalance: 100,

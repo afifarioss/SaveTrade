@@ -103,7 +103,7 @@ export const BACKTEST_STRATEGY_VERSIONS: Record<
 > = {
   "trend-pullback": "ST-TREND-PULLBACK-1.0",
   "regime-momentum": "ST-REGIME-MOMENTUM-1.0",
-  "liquidity-reversion": "ST-LIQUIDITY-REVERSION-1.0",
+  "liquidity-reversion": "ST-LIQUIDITY-REVERSION-2.0",
 };
 
 export function runBacktest(
